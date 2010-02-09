@@ -1,0 +1,443 @@
+Dimensional Analysis System for C\+\+ (DAS\+\+)
+===============================================
+:Author: Ed Keith
+
+
+/////////////////////////////////////////////////////////////////////
+This file is written to be formated with asciidoc
+/////////////////////////////////////////////////////////////////////
+
+Intro
+-----
+
+Dimensional analysis is a powerful tool used by Scientists and Engineers 
+to catch errors. Now it is available for C\+\+ programmers!
+Dimensional analysis is actually quite simple. It's just a sophisticated 
+approach to what your elementary school teacher told you, "You can't add 
+apples and oranges". But in C\+\+ we usually represent both apples and oranges 
+as integers, and the compiler is perfectly willing to let us add them. This 
+library addresses that problem.
+
+Instead of writing :
+
+-------------------------------------------
+
+  float miles_per_gallon = 45;
+  float cost_of_gas = 3.999; // Why do they always tack on an extra 9/10 cent?
+  float distance_to_work = 25;
+  float cost_of_commute;
+
+-------------------------------------------------
+
+I write :
+
+-------------------------------------------
+
+  Distance_per_Fluid_Unit miles_per_gallon = 45 * (miles / gallons);
+  Cost_of_Fluid cost_of_gas = 3.999 * (us_dollars / gallon); // Why do they always tack on an extra 9/10 cent?
+  Distance distance_to_work = 25 * miles;
+  Money cost_of_commute;
+
+-------------------------------------------------
+
+The first thing to notice is that the units are required, failure to provide 
+units will result in a compile error! (This might have saved the mars probe.)
+
+Now I use these variables, but I make a stupid mistake :
+
+-----------------------------------------------------------------
+
+   cost_of_commute = distance_to_work * cost_of_gas * miles_per_gallon;
+
+-----------------------------------------------------------------------
+
+A silly little mistake anybody could have made. If I had used the first
+set of declarations I might have sent the code off the be tested without 
+noticing the error. But if I used dimensioned types the compiler will 
+catch the error for me! So I fix it.
+
+----------------------------------------------------------------
+
+   cost_of_commute = distance_to_work * cost_of_gas / miles_per_gallon;
+
+-----------------------------------------------------------------------
+
+Now what do I do with the results? I wanted to return them as a float, 
+but that dose not work :
+
+-----------------------------------------------------------------
+
+   float retval = cost_of_commute;
+
+-----------------------------------------------------------------------
+
+Failed to compile, I need to convert cost_of_commute to a dimensionless 
+value. I do that be dividing by a unit :
+
+
+-----------------------------------------------------------------
+
+   float retval = cost_of_commute / us_dollars; 
+
+-----------------------------------------------------------------------
+
+Now it works fine. If I wanted it in Mexican Pesos it is just as easy 
+(assuming someone told the system how to do the conversion).
+
+
+-----------------------------------------------------------------
+
+   float retval = cost_of_commute / mex_pesos; 
+
+-----------------------------------------------------------------------
+
+Again the units are required, making the code self documenting.
+
+On the other hand if, late one night, I decided to return the value in 
+bits_per_second :
+
+-----------------------------------------------------------------
+
+   float retval = cost_of_commute / (bits / second); 
+
+-----------------------------------------------------------------------
+
+The compiler would report the error, warning me that I had probably had 
+too much Jolt Cola and Twinkies, and not enough sleep.
+
+Enough marketing hype, Lets got on with how to use it.
+
+
+Tutorial
+--------
+
+Dimension Basis Vector
+~~~~~~~~~~~~~~~~~~~~~~
+
+The first thing you need to worry about when you are planning to use 
+dimensional analysis is your dimension basis vector. The dimension basis 
+vector defines what dimensions are available to you. DAS++ has a default 
+dimension Basis vector which consists of the standard SI dimensions of Length 
+(len), Mass, (mass), Time (time), Electric current (cur), Thermodynamic 
+temperature (temp), Amount of Substance (sub), and Luminous intensity (lum), 
+plus labor (lab), information (info), & monetary units (mu). If you want a 
+different dimension basis vector you can define your own easily.
+
+
+---------------------------------------------------------------------
+
+// Define the dimension vector
+#   define EdK_DAS_BASIS (foo, (bar, (baz, BOOST_PP_NIL)))
+
+// and the internal dimension IDs
+#   define EdK_DAS_UID_foo 1
+#   define EdK_DAS_UID_bar 2
+#   define EdK_DAS_UID_baz 3
+
+---------------------------------------------------------------------
+
+The basis vector is a Boost Preprocessor library List.
+
+What dimentional basis you use will be determined by your application. For 
+example, if you are working on a windowing system you might want to have x 
+coorinatts and y cordinats and to be able to add vertical distance to the x 
+coordinance and horizonal distance to the y coordinats and to multiply 
+vertical distances by horizontal distances to get area. In which case you 
+might want the use X and y as your dimentional basis.
+
+
+[WARNING]
+---------------------------------------------------------------------
+
+It is important that the dimension IDs exactly match the vector. To make this 
+easy a script is provided to generate a header file with the dimension basis 
+vector definition. 
+
+---------------------------------------------------------------------
+
+[WARNING]
+---------------------------------------------------------------------
+
+It is also very important that the single definition rule be strictly 
+enforced. The same Dimension basis vector must be the same for all code that is 
+linked together.
+
+---------------------------------------------------------------------
+
+
+The dimension basis vector must be defined before the daspp.hpp header file 
+is included.
+
+
+Dimensioned Types
+~~~~~~~~~~~~~~~~~
+
+As you would expect dimensioned types form the core of the dimensional 
+analysis system. To define a dimensioned type you need to determine its base 
+type and it dimensionality. It is recommended that you use typedefs.
+
+---------------------------------------------------------------------
+
+typedef Dimensioned_Type<double, 
+        EdK_DAS_MAKE_DIMENSION_VECTOR(((time,-1))((len,1)))> speed;
+
+typedef Dimensioned_Type<double, 
+        EdK_DAS_MAKE_DIMENSION_VECTOR(((len,1))((time,-2)))> acceleration;
+
+typedef Dimensioned_Type<double, 
+        EdK_DAS_MAKE_DIMENSION_VECTOR(((len,1))((time,-3)))> jerk;
+
+---------------------------------------------------------------------
+
+The dimension vector is a Boost Preprocessor Sequence of Tuples. As you can 
+see the order of the base dimensions is unimportant. This can be very handy 
+if the dimension vector is large (the default has ten components) remembering 
+the order can be difficult. Also if the same eliment of the basis is used 
+multiple times the sum will be used. e.g. ((len, 1))((len, -7))((len, 9)) 
+will yield the same reult as ((len,3)).
+
+
+Units
+~~~~~
+
+Dimensioned values are always associated with units. If I asked you how 
+far it is from your home to your work and you answered "12", you have not 
+answered my question. Twelve what? You need to provide units.
+
+In DAS\+\+ units are applied with the * and / operators. 
+
+-----------------------------------------------------------
+
+	Time length_of_lunch_break = 50 * minutes;
+	Frequency number_of_breaks_I_take = 5 / days;
+
+-----------------------------------------------------------
+
+If you want to get back to a dimensionless number you just reverse the 
+process.
+
+-----------------------------------------------------------
+
+      int breaks_in_a_week = number_of_breaks_I_take * weeks;
+
+-----------------------------------------------------------
+
+This works in most cases because the unit is nothing more than a 
+dimensioned constant scaling factor which is multiplied or divided by 
+the dimensionless number. If you look at the header file it looks more 
+complicated than that, but that is just because I'm making sure I cover 
+all possible numeric types and avoid any possible initialisation ordering 
+problems. There are exceptions to this basic rule if the scale used for the 
+unit in question is offset (as in Fahrenheit and Centigrade temperatures, 
+which are offset from absolute zero) or non linear (like Decibels). These 
+units requite special classes to provide the conversion by overloading the * 
+and / operators, but are used exactly like all other units.
+
+
+When defining units you can either use existing units to define you new unit.
+
+---------------------------------------------------------------------
+
+Time shake()
+{
+ return (10 * nano() * second());
+}
+
+Information nibble()
+{
+ return (4 * bit());
+}
+
+Length potrzebie()
+{
+  return (2.263348517438173216473 * milli() * meter())
+}
+
+Length smoot()
+{
+  return (177 * centi() * meter());
+}
+
+Area Barn()
+{
+  return (1.0E28 * meter() * meter())
+}
+
+Volume Barn_megaparsec()
+{
+ return (3.0857 * milli() * liter());
+}
+
+
+Power Donkeypower()
+{
+  return (250 * watt())
+}
+
+
+---------------------------------------------------------------------
+
+
+Or you can use the data member 'm_value' to define your own units. To do this 
+you need to know what the internal representation is in. The provided units 
+all use MKS as the internal representation. 
+
+The most likely reason for doing this is if you wish to use a different 
+dimension basis vector, or or a differant internal representation. You can 
+use 'm_value' to define fundamental units and use fundamental units to define 
+additional units. 
+
+If you added Beauty (bea) and Bogosity (bog) to your dimension basis vector 
+you would need to define the Helen (the amount of Beauty required to launch 
+1,000 ships) and microLenat (uL, the standard unit of Bogosity) an as follows:
+
+---------------------------------------------------------------------
+
+typedef Dimensioned_Type<double, 
+        EdK_DAS_MAKE_DIMENSION_VECTOR(((bea,1)))> Beauty;
+
+typedef Dimensioned_Type<double, 
+        EdK_DAS_MAKE_DIMENSION_VECTOR(((bog,1)))> Bogosity;
+
+
+Beauty helen()
+{
+    Beauty b;
+    b.m_value = 1;
+    return b;
+}
+
+Bogosity uL()
+{
+    Bogosity b;
+    b.m_value = 1;
+    return b;
+}
+
+---------------------------------------------------------------------
+
+or, if you would prefer to use the millihelen (the amount of Beauty required 
+to launch one ship) as the internal representation: 
+
+---------------------------------------------------------------------
+
+Beauty helen()
+{
+    Beauty b;
+    b.m_value = 1000;
+    return b;
+}
+
+--------------------------------------------------------------------- 
+
+
+Temperature and other offset units
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+While the Kelvin and Rankine scales work like the units we have seen so 
+far, the more familiar Celsius and Fahrenheit scales do not, they do not 
+have a common zero base line. There for we can not just multiply or 
+divide by a scaling factor.
+
+First, it is important to distinction between two different uses of the 
+temperature dimensioned type. It is very different to say "the 
+temperature is 10 Fahrenheit degrees warmer outside today than it was 
+yesterday", and saying "It is 10 degrees Fahrenheit outside today". In the
+first case we are referring to a change in temperature, in the second we 
+are referring to an absolute temperature. In the first case all we need 
+is a scaling factor. I call these scaling factors, "Fdegs" and "Cdegs". 
+The latter is much more difficult, I needed to create a new type which 
+overloads the * and / operators. You can use the system without 
+understanding how this works, you just need to know to use degsF or degsC
+to covert an number to an absolute temperature.
+
+[WARNING]
+=====================================================================
+
+It is very important to always distinguish between Fdegs and degsF (or 
+Cdegs and DegsC). This is a mistake the compiler cannot help you with. 
+
+=====================================================================
+
+If you are interested in the gory details read on.
+
+For defining offset or nonlinear unit I recommend looking at th code for the 
+existing temperature units and decibels.
+
+// ToDo: Fill in the details.
+
+
+Decibels and other nonlinear units
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Not all measurement scales are linear, but the user can be shielded from 
+this also.
+
+// ToDo: Fill in the details.
+
+
+Other systems
+-------------
+
+Boost::Units offers similar functionality. The Boost::Units library was 
+first published in 2003. I began work on this library in 1995 or 1996. I 
+offered it to Boost some time around 1997 or 1998, but was told at that time 
+that there was no interest in it unless it had built in support for Tea Bags. 
+I told them it was configurable and they could add support for Tea Bags, but 
+they still were not interested, so I continued development on my own.
+
+Since Boost::Units now exists I conclude that there is now interest, so I am 
+publishing. I feel this system is superior to the Boost:Units library because 
+it is much more portable (having been tested wit OpenWatcom C++, Digital Mars 
+C++ and the Free Borland C++ 5.5, none of which are supported by Boost::Unit), 
+and (IMHO) easier to use.
+
+In defence of Boost:Units, there is clearly a difference in philosophy 
+between the two libraries, which can even be seen in the name. Boost::Units 
+is designed to make it safe and easy to use SI units. DAS\+\+ is designed to 
+support extreme type safety, including, but not limited to SI units. I am 
+currently working on making it safer to have two different sets of 
+Dimensional Types in the same compilation unit. You do this by using 
+nonconvertible base types, the problem now is that they would both need to 
+use the same basis vector, or be in separate compilation units.
+
+Boost::Units is great if you do not need to customize it. But extending it 
+can be a pain. Assuming you have extended the supplied dimension basis vector 
+with Beauty and Bogosity, and described earlier, you can then define the 
+following.
+
+----------------------------------------------------------------------
+
+typedef Dimensioned_Type<double, 
+        EdK_DAS_MAKE_DIMENSION_VECTOR(((bog,1))((len,-2))((time,-1)))> 
+        Bogon_flux_density;
+
+typedef Dimensioned_Type<double, 
+        EdK_DAS_MAKE_DIMENSION_VECTOR(((bea,1))((len,-3)))> 
+        Beauty_per_unit_volume;
+
+typedef Dimensioned_Type<double, 
+        EdK_DAS_MAKE_DIMENSION_VECTOR(((lab,-1))((time,-1))((mu,1)))> 
+        Cost_of_labor;
+
+typedef Dimensioned_Type<double, 
+        EdK_DAS_MAKE_DIMENSION_VECTOR(((mu,1))((time,1))((mass,-1))((len,-1)))> 
+        Cost_of_energy;
+
+typedef Dimensioned_Type<double, 
+        EdK_DAS_MAKE_DIMENSION_VECTOR(((info,1))((time,-1)))> 
+        Bandwidth;
+
+----------------------------------------------------------------------
+
+I leave it as an exercise for the reader to define these types with Boost::Unit.
+
+
+Reference
+---------
+
+See the Doxagen API for the details.
+
+(C) copyright, Ed Keith 2008, 2009
+
+
