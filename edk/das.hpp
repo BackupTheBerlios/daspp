@@ -164,7 +164,7 @@ class DimentionedType :
 {
 public:
     typedef  DimentionedType ThisType;
-    typedef  typename  ThisType::VT UnderlyingValueType;
+    typedef  VT UnderlyingValueType;
 
     UnderlyingValueType value_; /**< The underlying value
                    * Note: Should be private in theory,
